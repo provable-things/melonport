@@ -178,8 +178,7 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
      
     function updatePriceOraclize()
         payable {
-        bytes32 oraclizeId = oraclize_query(frequency, 'nested', oraclizeQuery, 500000);
-        
+        bytes32 oraclizeId = oraclize_query(frequency, 'nested', oraclizeQuery, 400000);
     }
     
     function setFrequency(uint newFrequency) only_owner {
