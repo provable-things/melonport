@@ -25,20 +25,20 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
     // FIELDS
 
     // Constant fields
-    uint frequency = 300; // Frequency of updates in seconds
-    uint validity = 600; // After time has passed data is considered invalid.
-    
+    uint frequency = 60; // Frequency of updates in seconds
+    uint validity = 120; // After time has passed data is considered invalid.
+
     // Fields that can be changed by functions
     uint updateCounter = 0; // Used to track how many times data has been updated
-    uint public numAssets = 0;
     mapping (address => Data) data; // Address of fungible => price of fungible
     // EVENTS
 
     event PriceUpdated(address ofAsset, uint ofPrice, uint ofUpdateCounter);
     // ORACLIZE DATA-STRUCTURES
-    bool continuousDelivery;
-    string oraclizeQuery;
-    mapping(uint => address) public assetsIndex;
+    
+    mapping (bytes32 => address) id2Asset;
+    mapping (address => bool) continuousDelivery;
+    mapping (address => string) assetQuery;
 
     // MODIFIERS
 
@@ -100,15 +100,25 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
 
     function PriceFeed() payable {
         oraclize_setProof(proofType_TLSNotary | proofStorage_IPFS);
-        //[identity] ${[URL]  json(https://api.kraken.com/0/public/Ticker?pair=ETHXBT,XREPXETH,ETHEUR).result['XETHXXBT','XREPXETH','XETHZEUR'].c.0}~${[URL] json(https://poloniex.com/public?command=returnTicker).['BTC_ETH','ETH_REP'].last }~${[URL] json(https://api.bitfinex.com/v1/pubticker/ethbtc).last_price}~
-        addAsset(0x23bb1f93c168a290f0626ec9b9fd8ba8c8591752);
-        addAsset(0x02a2656ad55e07c3bc7b5d388e80d5a675b28a20);
-        addAsset(0x605832d1f474cafc26951287ec47d5c09334f1ce);
-        setQuery("[identity] ${[URL] json(https://api.kraken.com/0/public/Ticker?pair=ETHXBT).result.XETHXXBT.c.0}~${[URL] json(https://poloniex.com/public?command=returnTicker).BTC_ETH.last }~${[URL] json(https://api.bitfinex.com/v1/pubticker/ethbtc).last_price} ~||${[URL] json(https://api.kraken.com/0/public/Ticker?pair=XREPXETH).result.XREPXETH.c.0}~${[URL] json(https://poloniex.com/public?command=returnTicker).ETH_REP.last }~||${[URL] json(https://api.kraken.com/0/public/Ticker?pair=ETHEUR).result.XETHZEUR.c.0}~${[URL] json(https://www.therocktrading.com/api/ticker/ETHEUR).result.0.last}~||");
-        enableContinuousDelivery();
-        updatePriceOraclize();
-    }
 
+         //BTC
+        addQuery(0x23bb1f93c168a290f0626ec9b9fd8ba8c8591752, "[identity] ${[URL] json(https://api.kraken.com/0/public/Ticker?pair=ETHXBT).result.XETHXXBT.c.0}~${[URL] json(https://poloniex.com/public?command=returnTicker).BTC_ETH.last }~${[URL] json(https://api.bitfinex.com/v1/pubticker/ethbtc).last_price}~");
+        enableContinuousDelivery(0x23bb1f93c168a290f0626ec9b9fd8ba8c8591752);
+        updatePriceOraclizeOfAsset(0x23bb1f93c168a290f0626ec9b9fd8ba8c8591752);
+
+
+         //REP
+        addQuery(0x02a2656ad55e07c3bc7b5d388e80d5a675b28a20, "[identity] ${[URL] json(https://api.kraken.com/0/public/Ticker?pair=XREPXETH).result.XREPXETH.c.0}~${[URL] json(https://poloniex.com/public?command=returnTicker).ETH_REP.last }~");
+        enableContinuousDelivery(0x02a2656ad55e07c3bc7b5d388e80d5a675b28a20);
+        updatePriceOraclizeOfAsset(0x02a2656ad55e07c3bc7b5d388e80d5a675b28a20);
+
+
+         //EURO
+        addQuery(0x605832d1f474cafc26951287ec47d5c09334f1ce, "[identity] ${[URL] json(https://api.kraken.com/0/public/Ticker?pair=ETHEUR).result.XETHZEUR.c.0}~${[URL] json(https://www.therocktrading.com/api/ticker/ETHEUR).result.0.last}~");
+        enableContinuousDelivery(0x605832d1f474cafc26951287ec47d5c09334f1ce);
+        updatePriceOraclizeOfAsset(0x605832d1f474cafc26951287ec47d5c09334f1ce);
+    }
+    
     function () payable {}
     
     /// Pre: Only Owner; Same sized input arrays
@@ -133,71 +143,66 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
 
      
     function __callback(bytes32 oraclizeId, string result, bytes proof) only_oraclize {
+        address currentAddress = id2Asset[oraclizeId];
 
         var s = result.toSlice();
-        var delimAssets = "||".toSlice();
-        var delimPrices = "~".toSlice();
-        
-        var assets = new string[](s.count(delimAssets));
-        for(uint i = 0; i < assets.length; i++) {
-            assets[i] = s.split(delimAssets).toString();
-            var assetSlice = assets[i].toSlice();
-            address assetAddress = assetsIndex[i+1];
-            Asset currentAsset = Asset(assetAddress);
-            uint length = assetSlice.count(delimPrices);
-            uint decimals = currentAsset.getDecimals();
-            uint sum = 0;
-            for(uint j = 0; j < length; j++) {
-                sum += parseInt(assetSlice.split(delimPrices).toString(), decimals);
-            }
-            
-            uint price = sum/length;
-            data[assetAddress] = Data(now, price);
-            
-            updateCounter += 1;
-            PriceUpdated(assetAddress, price, updateCounter);
+        var delim = "~".toSlice();
+        Asset currentAsset = Asset(currentAddress);
+        uint decimals = currentAsset.decimals();
+        uint sum = 0;
+        uint length = s.count(delim);
+        for (uint i = 0; i < length; i++) {
+             sum += parseInt(s.split(delim).toString(), decimals);
         }
         
-    
-        if (continuousDelivery) {
-            updatePriceOraclize();
+        uint price = sum/length;
+        data[currentAddress] = Data(now, price);
+        
+        if (continuousDelivery[currentAddress]) {
+            updatePriceOraclizeOfAsset(currentAddress);
         }
+        
+        updateCounter += 1;
+        PriceUpdated(currentAddress, price, updateCounter);
     }
      
-    function setQuery(string query) only_owner {
-        oraclizeQuery = query;
-    }
-    
-    function enableContinuousDelivery() only_owner {
-        continuousDelivery = true;
+    function addQuery(address ofAsset, string query) only_owner {
+        assetQuery[ofAsset] = query;
     }
      
-    function disableContinuousDelivery() only_owner {
-        delete continuousDelivery;
+    function rmQuery(address ofAsset) {
+        delete assetQuery[ofAsset];
     }
      
-    function updatePriceOraclize()
+     
+    function enableContinuousDelivery(address ofAsset) only_owner {
+        continuousDelivery[ofAsset] = true;
+    }
+     
+    function disableContinuousDelivery(address ofAsset) only_owner {
+        delete continuousDelivery[ofAsset];
+    }
+     
+    function updatePriceOraclizeOfAsset(address ofAsset)
         payable {
-        bytes32 oraclizeId = oraclize_query(frequency, 'nested', oraclizeQuery, 350000);
+        bytes32 oraclizeId = oraclize_query(frequency, 'nested', assetQuery[ofAsset]);
+        id2Asset[oraclizeId]= ofAsset;
     }
     
     function setFrequency(uint newFrequency) only_owner {
-        if (frequency > validity) throw;
         frequency = newFrequency;
     }
     
-    function setValidity(uint _validity) only_owner {
-        validity = _validity;
+    function updatePriceOraclize(address[] ofAssets)
+        only_owner 
+        payable {
+        
+        for (uint i = 0; i < ofAssets.length; ++i) {
+           
+            if (sha3(assetQuery[ofAssets[i]]) != sha3('')) {
+                updatePriceOraclizeOfAsset(ofAssets[i]);
+            }            
+        }
+        
     }
-    
-    function addAsset(address _newAsset) only_owner {
-        numAssets += 1;
-        assetsIndex[numAssets] = _newAsset;
-    }
-    
-    function rmAsset(uint _index) only_owner {
-        delete assetsIndex[_index];
-        numAssets -= 1;
-    }
-    
 }
