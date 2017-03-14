@@ -24,21 +24,22 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
     
     // FIELDS
 
-    // Constant fields
+	// Fields that can be changed by functions
     uint frequency = 300; // Frequency of updates in seconds
     uint validity = 600; // After time has passed data is considered invalid.
+   	mapping(uint => address) public assetsIndex;
     
-    // Fields that can be changed by functions
     uint updateCounter = 0; // Used to track how many times data has been updated
     uint public numAssets = 0;
     mapping (address => Data) data; // Address of fungible => price of fungible
-    // EVENTS
-
+    
+	// EVENTS
     event PriceUpdated(address ofAsset, uint ofPrice, uint ofUpdateCounter);
-    // ORACLIZE DATA-STRUCTURES
+    
+	// ORACLIZE DATA-STRUCTURES
     bool continuousDelivery;
     string oraclizeQuery;
-    mapping(uint => address) public assetsIndex;
+    
 
     // MODIFIERS
 
@@ -100,7 +101,6 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
 
     function PriceFeed() payable {
         oraclize_setProof(proofType_TLSNotary | proofStorage_IPFS);
-        //[identity] ${[URL]  json(https://api.kraken.com/0/public/Ticker?pair=ETHXBT,XREPXETH,ETHEUR).result['XETHXXBT','XREPXETH','XETHZEUR'].c.0}~${[URL] json(https://poloniex.com/public?command=returnTicker).['BTC_ETH','ETH_REP'].last }~${[URL] json(https://api.bitfinex.com/v1/pubticker/ethbtc).last_price}~
         addAsset(0x23bb1f93c168a290f0626ec9b9fd8ba8c8591752);
         addAsset(0x02a2656ad55e07c3bc7b5d388e80d5a675b28a20);
         addAsset(0x605832d1f474cafc26951287ec47d5c09334f1ce);
