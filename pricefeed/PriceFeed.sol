@@ -24,19 +24,19 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
     
     // FIELDS
 
-	// Fields that can be changed by functions
+    // Fields that can be changed by functions
     uint frequency = 300; // Frequency of updates in seconds
     uint validity = 600; // After time has passed data is considered invalid.
-   	mapping(uint => address) public assetsIndex;
+    mapping(uint => address) public assetsIndex;
     
     uint updateCounter = 0; // Used to track how many times data has been updated
     uint public numAssets = 0;
     mapping (address => Data) data; // Address of fungible => price of fungible
     
-	// EVENTS
+    // EVENTS
     event PriceUpdated(address ofAsset, uint ofPrice, uint ofUpdateCounter);
     
-	// ORACLIZE DATA-STRUCTURES
+    // ORACLIZE DATA-STRUCTURES
     bool continuousDelivery;
     string oraclizeQuery;
     
@@ -133,13 +133,12 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
 
      
     function __callback(bytes32 oraclizeId, string result, bytes proof) only_oraclize {
-
         var s = result.toSlice();
         var delimAssets = "||".toSlice();
         var delimPrices = "~".toSlice();
-        
         var assets = new string[](s.count(delimAssets));
-        for(uint i = 0; i < assets.length; i++) {
+       
+        for (uint i = 0; i < assets.length; i++) {
             assets[i] = s.split(delimAssets).toString();
             var assetSlice = assets[i].toSlice();
             address assetAddress = assetsIndex[i+1];
@@ -147,6 +146,7 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
             uint length = assetSlice.count(delimPrices);
             uint decimals = currentAsset.getDecimals();
             uint sum = 0;
+           
             for(uint j = 0; j < length; j++) {
                 sum += parseInt(assetSlice.split(delimPrices).toString(), decimals);
             }
