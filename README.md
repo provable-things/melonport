@@ -1,6 +1,6 @@
-# Oraclize Melonport PriceFeed
+# Oraclize Melonport Module: Pricefeed
 
-This repository contains the source code of a *price feed smart contract* designed to interact with [Melonport](https://melonport.com).
+This repository contains the source code of a *price feed smart contract* designed to interact as a module for the [Melonport](https://melonport.com)'s Melon protocol.
 
 The contract is now **live** on [Kovan](https://github.com/kovan-testnet/proposal): https://kovan.etherscan.io/address/0x23261f0b78cb52e9b23a981e9373e759405a009f
 
