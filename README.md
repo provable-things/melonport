@@ -12,4 +12,4 @@ Prices are being updated every 5 minutes and, in order to get full transparency,
 The [authenticity proofs](http://docs.oraclize.it/#authenticity-proofs) attached to each transaction can be used to verify at the any time that the data sent on-chain was authentic.
 
 The contract was designed by following the template interface proposed by the Melonport team, so that its compatibility with the Melon protocol is guaranteed.
-The native on-chain interoperability of the Oraclize and Melon protocols makes it trivial for the two systems to cooperate with each othe
+The native on-chain interoperability of the Oraclize and Melon protocols makes it trivial for the two systems to cooperate with each other.
