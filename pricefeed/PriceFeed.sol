@@ -27,11 +27,11 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
 
     // Constant fields
     // Token addresses on Kovan
-    uint public constant ETHER_TOKEN = 0xc5f550c78db2ee33e5867c432e175cac89073772;
-    uint public constant BITCOIN_TOKEN = 0x23bb1f93c168a290f0626ec9b9fd8ba8c8591752;
-    uint public constant REP_TOKEN = 0x02a2656ad55e07c3bc7b5d388e80d5a675b28a20;
-    uint public constant EURO_TOKEN = 0x605832d1f474cafc26951287ec47d5c09334f1ce;
-    uint public constant MELON_TOKEN = 0xfcf98c25129ba729e1822e56ffbd3e758b81ce7c;
+    address public constant ETHER_TOKEN = 0xc5f550c78db2ee33e5867c432e175cac89073772;
+    address public constant BITCOIN_TOKEN = 0x23bb1f93c168a290f0626ec9b9fd8ba8c8591752;
+    address public constant REP_TOKEN = 0x02a2656ad55e07c3bc7b5d388e80d5a675b28a20;
+    address public constant EURO_TOKEN = 0x605832d1f474cafc26951287ec47d5c09334f1ce;
+    address public constant MELON_TOKEN = 0xfcf98c25129ba729e1822e56ffbd3e758b81ce7c;
 
     // Fields that are only changed in constructor
     /// Note: By definition the price of the base asset against itself (base asset) is always equals one
