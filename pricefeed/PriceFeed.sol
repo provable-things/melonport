@@ -23,6 +23,11 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
         uint price; // Price of asset relative to Ether with decimals of this asset
     }
 
+    struct strAsset {
+        address assetAddress;
+        bool invertPair;
+    }
+
     // FIELDS
 
     // Constant fields
@@ -40,7 +45,8 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
     // Fields that can be changed by functions
     uint frequency = 300; // Frequency of updates in seconds
     uint validity = 600; // After time has passed data is considered invalid.
-    mapping(uint => address) public assetsIndex;
+
+    mapping(uint => strAsset) public assetsIndex;
     uint public numAssets = 0;
     mapping (address => Data) data; // Address of fungible => price of fungible
 
@@ -123,10 +129,10 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
     function PriceFeed() payable {
         oraclize_setProof(proofType_TLSNotary | proofStorage_IPFS);
         baseAsset = ETHER_TOKEN; // All input (quote-) prices against this base asset
-        addAsset(BITCOIN_TOKEN);
-        addAsset(REP_TOKEN);
-        addAsset(EURO_TOKEN);
-        addAsset(MELON_TOKEN);
+        addAsset(BITCOIN_TOKEN,false);
+        addAsset(REP_TOKEN, true);
+        addAsset(EURO_TOKEN, false);
+        addAsset(MELON_TOKEN, true);
         setQuery("[identity] ${[URL] json(https://api.kraken.com/0/public/Ticker?pair=ETHXBT).result.XETHXXBT.c.0}~${[URL] json(https://poloniex.com/public?command=returnTicker).BTC_ETH.last }~${[URL] json(https://api.bitfinex.com/v1/pubticker/ethbtc).last_price} ~||${[URL] json(https://api.kraken.com/0/public/Ticker?pair=XREPXETH).result.XREPXETH.c.0}~${[URL] json(https://poloniex.com/public?command=returnTicker).ETH_REP.last }~||${[URL] json(https://api.kraken.com/0/public/Ticker?pair=ETHEUR).result.XETHZEUR.c.0}~${[URL] json(https://www.therocktrading.com/api/ticker/ETHEUR).result.0.last}~||${[URL] json(https://api.kraken.com/0/public/Ticker?pair=MLNETH).result.XMLNXETH.c.0}~||");
         enableContinuousDelivery();
         updatePriceOraclize();
@@ -167,8 +173,8 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
         for (uint i = 0; i < assets.length; i++) {
             assets[i] = s.split(delimAssets).toString();
             var assetSlice = assets[i].toSlice();
-            address assetAddress = assetsIndex[i+1];
-            Asset currentAsset = Asset(assetAddress);
+            strAsset currentAssetStr = assetsIndex[i+1];
+            Asset currentAsset = Asset(currentAssetStr.assetAddress);
             uint length = assetSlice.count(delimPrices);
             uint decimals = currentAsset.getDecimals();
             uint sum = 0;
@@ -178,9 +184,12 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
             }
 
             uint price = sum/length;
-            data[assetAddress] = Data(now, price);
+            if (currentAssetStr.invertPair) {
+                price = 10**currentAsset.getDecimals()*10**currentAsset.getDecimals()/price;
+            }
+            data[currentAssetStr.assetAddress] = Data(now, price);
 
-            PriceUpdated(assetAddress, now, price);
+            PriceUpdated(currentAssetStr.assetAddress, now, price);
         }
 
         if (continuousDelivery) {
@@ -200,8 +209,9 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
         delete continuousDelivery;
     }
 
-    function updatePriceOraclize() payable {
-        bytes32 oraclizeId = oraclize_query(frequency, 'nested', oraclizeQuery, 350000);
+    function updatePriceOraclize()
+        payable {
+        bytes32 oraclizeId = oraclize_query(frequency, 'nested', oraclizeQuery, 500000);
     }
 
     function setFrequency(uint newFrequency) only_owner {
@@ -213,9 +223,9 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
         validity = _validity;
     }
 
-    function addAsset(address _newAsset) only_owner {
+    function addAsset(address _newAsset, bool invertPrice) only_owner {
         numAssets += 1;
-        assetsIndex[numAssets] = _newAsset;
+        assetsIndex[numAssets] = strAsset(_newAsset, invertPrice);
     }
 
     function rmAsset(uint _index) only_owner {
