@@ -22,7 +22,7 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
         uint timestamp; // Timestamp of last price update of this asset
         uint price; // Price of asset relative to Ether with decimals of this asset
     }
-    
+
     struct strAsset {
         address assetAddress;
         bool invertPair;
@@ -45,7 +45,7 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
     // Fields that can be changed by functions
     uint frequency = 300; // Frequency of updates in seconds
     uint validity = 600; // After time has passed data is considered invalid.
-    
+
     mapping(uint => strAsset) public assetsIndex;
     uint public numAssets = 0;
     mapping (address => Data) data; // Address of fungible => price of fungible
@@ -92,19 +92,28 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
     function getFrequency() constant returns (uint) { return frequency; }
     function getValidity() constant returns (uint) { return validity; }
 
-    // Pre: Checks for initialisation and inactivity
+    // Pre: Asset has been initialised
+    // Post: Returns boolean if data is valid
+    function getStatus(address ofAsset)
+        constant
+        data_initialised(ofAsset)
+        returns (bool)
+    {
+        return now - data[ofAsset].timestamp <= validity;
+    }
+
+    // Pre: Asset has been initialised and is active
     // Post: Price of asset, where last updated not longer than `validity` seconds ago
     function getPrice(address ofAsset)
         constant
         data_initialised(ofAsset)
         data_still_valid(ofAsset)
         returns (uint)
-
     {
         return data[ofAsset].price;
     }
 
-    // Pre: Checks for initialisation and inactivity
+    // Pre: Asset has been initialised and is active
     // Post: Timestamp and price of asset, where last updated not longer than `validity` seconds ago
     function getData(address ofAsset)
         constant
