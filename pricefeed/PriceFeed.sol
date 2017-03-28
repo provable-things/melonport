@@ -193,7 +193,7 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
                 PriceUpdated(currentAssetStr.assetAddress, now, price);
             }
         }
-
+        
         if (continuousDelivery) {
             updatePriceOraclize();
         }
