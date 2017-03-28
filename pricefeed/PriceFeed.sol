@@ -163,7 +163,6 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
     }
 
     // NON-CONSTANT METHODS
-
     function __callback(bytes32 oraclizeId, string result, bytes proof) only_oraclize {
         var s = result.toSlice();
         var delimAssets = "||".toSlice();
@@ -176,27 +175,30 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
             strAsset currentAssetStr = assetsIndex[i+1];
             Asset currentAsset = Asset(currentAssetStr.assetAddress);
             uint length = assetSlice.count(delimPrices);
-            uint decimals = currentAsset.getDecimals();
             uint sum = 0;
 
             for(uint j = 0; j < length; j++) {
-                sum += parseInt(assetSlice.split(delimPrices).toString(), decimals);
+                var part = assetSlice.split(delimPrices);
+                if (!part.empty()) {
+                    sum += parseInt(part.toString(), currentAsset.getDecimals());
+                }
             }
 
             uint price = sum/length;
-            if (currentAssetStr.invertPair) {
-                price = 10**currentAsset.getDecimals()*10**currentAsset.getDecimals()/price;
+            if (price != 0) {
+                if (currentAssetStr.invertPair) {
+                    price = 10**currentAsset.getDecimals()*10**currentAsset.getDecimals()/price;
+                }
+                data[currentAssetStr.assetAddress] = Data(now, price);
+                PriceUpdated(currentAssetStr.assetAddress, now, price);
             }
-            data[currentAssetStr.assetAddress] = Data(now, price);
-
-            PriceUpdated(currentAssetStr.assetAddress, now, price);
         }
 
         if (continuousDelivery) {
             updatePriceOraclize();
         }
     }
-
+    
     function setQuery(string query) only_owner {
         oraclizeQuery = query;
     }
@@ -234,3 +236,4 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
     }
 
 }
+
