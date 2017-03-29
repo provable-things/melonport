@@ -135,7 +135,7 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
         addAsset(MELON_TOKEN, true);
         setQuery("[identity] ${[URL] json(https://api.kraken.com/0/public/Ticker?pair=ETHXBT).result.XETHXXBT.c.0}~${[URL] json(https://poloniex.com/public?command=returnTicker).BTC_ETH.last }~${[URL] json(https://api.bitfinex.com/v1/pubticker/ethbtc).last_price} ~||${[URL] json(https://api.kraken.com/0/public/Ticker?pair=XREPXETH).result.XREPXETH.c.0}~${[URL] json(https://poloniex.com/public?command=returnTicker).ETH_REP.last }~||${[URL] json(https://api.kraken.com/0/public/Ticker?pair=ETHEUR).result.XETHZEUR.c.0}~${[URL] json(https://www.therocktrading.com/api/ticker/ETHEUR).result.0.last}~||${[URL] json(https://api.kraken.com/0/public/Ticker?pair=MLNETH).result.XMLNXETH.c.0}~||");
         enableContinuousDelivery();
-        updatePriceOraclize();
+        oraclize_query('nested', oraclizeQuery, 500000);
     }
 
     function () payable {}
@@ -165,27 +165,31 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
     // NON-CONSTANT METHODS
     function __callback(bytes32 oraclizeId, string result, bytes proof) only_oraclize {
         var s = result.toSlice();
-        var delimAssets = "||".toSlice();
-        var delimPrices = "~".toSlice();
-        var assets = new string[](s.count(delimAssets));
+        var assets = new string[](s.count("||".toSlice()));
 
         for (uint i = 0; i < assets.length; i++) {
-            assets[i] = s.split(delimAssets).toString();
+            assets[i] = s.split("||".toSlice()).toString();
             var assetSlice = assets[i].toSlice();
             strAsset currentAssetStr = assetsIndex[i+1];
             Asset currentAsset = Asset(currentAssetStr.assetAddress);
-            uint length = assetSlice.count(delimPrices);
+            uint length = assetSlice.count("~".toSlice());
+            uint copyLength = length;
             uint sum = 0;
 
             for(uint j = 0; j < length; j++) {
-                var part = assetSlice.split(delimPrices);
+                var part = assetSlice.split("~".toSlice());
                 if (!part.empty()) {
                     sum += parseInt(part.toString(), currentAsset.getDecimals());
                 }
+                else {
+                    copyLength -= 1;
+                }
             }
 
-            uint price = sum/length;
-            if (price != 0) {
+           
+            if (sum != 0 && copyLength != 0) {
+                uint price = sum/length;
+                
                 if (currentAssetStr.invertPair) {
                     price = 10**currentAsset.getDecimals()*10**currentAsset.getDecimals()/price;
                 }
@@ -213,7 +217,7 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
 
     function updatePriceOraclize()
         payable {
-        bytes32 oraclizeId = oraclize_query(frequency, 'nested', oraclizeQuery, 500000);
+        oraclize_query(frequency, 'nested', oraclizeQuery, 280000);
     }
 
     function setFrequency(uint newFrequency) only_owner {
