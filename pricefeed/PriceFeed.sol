@@ -129,10 +129,10 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
     function PriceFeed() payable {
         oraclize_setProof(proofType_TLSNotary | proofStorage_IPFS);
         quoteAsset = ETHER_TOKEN; // Is the quote asset of a portfolio against which all other assets are priced against
-        addAsset(MELON_TOKEN, true);
-        addAsset(BITCOIN_TOKEN,false);
-        addAsset(EURO_TOKEN, false);
-        addAsset(REP_TOKEN, true);
+        addAsset(MELON_TOKEN, false); // ETH/MLN
+        addAsset(BITCOIN_TOKEN, true); // BTC/ETH -> ETH/BTC
+        addAsset(EURO_TOKEN, true); // EUR/ETH -> ETH/EUR
+        addAsset(REP_TOKEN, false); // ETH/REP
         setQuery("[identity] ${[URL] json(https://api.kraken.com/0/public/Ticker?pair=MLNETH).result.XMLNXETH.c.0}~||${[URL] json(https://api.kraken.com/0/public/Ticker?pair=ETHXBT).result.XETHXXBT.c.0}~${[URL] json(https://poloniex.com/public?command=returnTicker).BTC_ETH.last }~${[URL] json(https://api.bitfinex.com/v1/pubticker/ethbtc).last_price} ~||${[URL] json(https://api.kraken.com/0/public/Ticker?pair=ETHEUR).result.XETHZEUR.c.0}~${[URL] json(https://www.therocktrading.com/api/ticker/ETHEUR).result.0.last}~||${[URL] json(https://api.kraken.com/0/public/Ticker?pair=XREPXETH).result.XREPXETH.c.0}~${[URL] json(https://poloniex.com/public?command=returnTicker).ETH_REP.last }~||");
         enableContinuousDelivery();
         oraclize_query('nested', oraclizeQuery, 500000);
@@ -161,8 +161,6 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
             PriceUpdated(ofAssets[i], now, newPrices[i]);
         }
     }
-
-    // NON-CONSTANT METHODS
 
     function __callback(bytes32 oraclizeId, string result, bytes proof) only_oraclize {
         var s = result.toSlice();
