@@ -20,7 +20,7 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
 
     struct Data {
         uint timestamp; // Timestamp of last price update of this asset
-        uint price; // Price of asset relative to Ether with decimals of this asset
+        uint price; // Price of asset quoted against `quoteAsset` times ten to the power of {decimals of this asset}
     }
 
     struct strAsset {
@@ -32,19 +32,19 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
 
     // Constant fields
     // Token addresses on Kovan
-    address public constant ETHER_TOKEN = 0xc5f550c78db2ee33e5867c432e175cac89073772;
-    address public constant BITCOIN_TOKEN = 0x23bb1f93c168a290f0626ec9b9fd8ba8c8591752;
-    address public constant REP_TOKEN = 0x02a2656ad55e07c3bc7b5d388e80d5a675b28a20;
-    address public constant EURO_TOKEN = 0x605832d1f474cafc26951287ec47d5c09334f1ce;
-    address public constant MELON_TOKEN = 0xfcf98c25129ba729e1822e56ffbd3e758b81ce7c;
+    address public constant ETHER_TOKEN = 0x7506c7BfED179254265d443856eF9bda19221cD7;
+    address public constant MELON_TOKEN = 0x4dffea52b0b4b48c71385ae25de41ce6ad0dd5a7;
+    address public constant BITCOIN_TOKEN = 0x9E4C56a633DD64a2662bdfA69dE4FDE33Ce01bdd;
+    address public constant EURO_TOKEN = 0xF61b8003637E5D5dbB9ca8d799AB54E5082CbdBc;
+    address public constant REP_TOKEN = 0xC151b622fDeD233111155Ec273BFAf2882f13703;
 
     // Fields that are only changed in constructor
-    /// Note: By definition the price of the base asset against itself (base asset) is always equals one
-    address baseAsset; // Is the base asset of a portfolio against which all other assets are priced against
+    /// Note: By definition the price of the quote asset against itself (quote asset) is always equals one
+    address quoteAsset; // Is the quote asset of a portfolio against which all other assets are priced against
 
     // Fields that can be changed by functions
     uint frequency = 300; // Frequency of updates in seconds
-    uint validity = 600; // After time has passed data is considered invalid.
+    uint validity = 600; // Time in seconds data is considered valid
 
     mapping(uint => strAsset) public assetsIndex;
     uint public numAssets = 0;
@@ -88,7 +88,7 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
 
     // CONSTANT METHODS
 
-    function getBaseAsset() constant returns (address) { return baseAsset; }
+    function getQuoteAsset() constant returns (address) { return quoteAsset; }
     function getFrequency() constant returns (uint) { return frequency; }
     function getValidity() constant returns (uint) { return validity; }
 
@@ -128,12 +128,12 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
 
     function PriceFeed() payable {
         oraclize_setProof(proofType_TLSNotary | proofStorage_IPFS);
-        baseAsset = ETHER_TOKEN; // All input (quote-) prices against this base asset
-        addAsset(BITCOIN_TOKEN,false);
-        addAsset(REP_TOKEN, true);
-        addAsset(EURO_TOKEN, false);
-        addAsset(MELON_TOKEN, true);
-        setQuery("[identity] ${[URL] json(https://api.kraken.com/0/public/Ticker?pair=ETHXBT).result.XETHXXBT.c.0}~${[URL] json(https://poloniex.com/public?command=returnTicker).BTC_ETH.last }~${[URL] json(https://api.bitfinex.com/v1/pubticker/ethbtc).last_price} ~||${[URL] json(https://api.kraken.com/0/public/Ticker?pair=XREPXETH).result.XREPXETH.c.0}~${[URL] json(https://poloniex.com/public?command=returnTicker).ETH_REP.last }~||${[URL] json(https://api.kraken.com/0/public/Ticker?pair=ETHEUR).result.XETHZEUR.c.0}~${[URL] json(https://www.therocktrading.com/api/ticker/ETHEUR).result.0.last}~||${[URL] json(https://api.kraken.com/0/public/Ticker?pair=MLNETH).result.XMLNXETH.c.0}~||");
+        quoteAsset = ETHER_TOKEN; // Is the quote asset of a portfolio against which all other assets are priced against
+        addAsset(MELON_TOKEN, false); // ETH/MLN
+        addAsset(BITCOIN_TOKEN, true); // BTC/ETH -> ETH/BTC
+        addAsset(EURO_TOKEN, true); // EUR/ETH -> ETH/EUR
+        addAsset(REP_TOKEN, false); // ETH/REP
+        setQuery("[identity] ${[URL] json(https://api.kraken.com/0/public/Ticker?pair=MLNETH).result.XMLNXETH.c.0}~||${[URL] json(https://api.kraken.com/0/public/Ticker?pair=ETHXBT).result.XETHXXBT.c.0}~${[URL] json(https://poloniex.com/public?command=returnTicker).BTC_ETH.last }~${[URL] json(https://api.bitfinex.com/v1/pubticker/ethbtc).last_price} ~||${[URL] json(https://api.kraken.com/0/public/Ticker?pair=ETHEUR).result.XETHZEUR.c.0}~${[URL] json(https://www.therocktrading.com/api/ticker/ETHEUR).result.0.last}~||${[URL] json(https://api.kraken.com/0/public/Ticker?pair=XREPXETH).result.XREPXETH.c.0}~${[URL] json(https://poloniex.com/public?command=returnTicker).ETH_REP.last }~||");
         enableContinuousDelivery();
         oraclize_query('nested', oraclizeQuery, 500000);
     }
@@ -143,9 +143,9 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
     /// Pre: Only Owner; Same sized input arrays
     /// Post: Update price of asset relative to Ether
     /** Ex:
-     *  Let asset == EUR-T, let Value of 1 EUR-T := 1 EUR == 0.080456789 ETH
+     *  Let quoteAsset == ETH, let asset == EUR-T, let Value of 1 EUR-T := 1 EUR == 0.080456789 ETH
      *  and let EUR-T decimals == 8,
-     *  => data[EUR-T].price = 8045678
+     *  => data[EUR-T].price = 8045678 [ETH/ (EUR-T * 10**8)]
      */
     function updatePrice(address[] ofAssets, uint[] newPrices)
         only_owner
@@ -162,7 +162,6 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
         }
     }
 
-    // NON-CONSTANT METHODS
     function __callback(bytes32 oraclizeId, string result, bytes proof) only_oraclize {
         var s = result.toSlice();
         var assets = new string[](s.count("||".toSlice()));
@@ -186,10 +185,10 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
                 }
             }
 
-           
+
             if (sum != 0 && copyLength != 0) {
                 uint price = sum/length;
-                
+
                 if (currentAssetStr.invertPair) {
                     price = 10**currentAsset.getDecimals()*10**currentAsset.getDecimals()/price;
                 }
@@ -197,12 +196,12 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
                 PriceUpdated(currentAssetStr.assetAddress, now, price);
             }
         }
-        
+
         if (continuousDelivery) {
             updatePriceOraclize();
         }
     }
-    
+
     function setQuery(string query) only_owner {
         oraclizeQuery = query;
     }
@@ -240,4 +239,3 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
     }
 
 }
-
