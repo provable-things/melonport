@@ -45,7 +45,7 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
     // Fields that can be changed by functions
     uint frequency = 300; // Frequency of updates in seconds
     uint validity = 600; // Time in seconds data is considered valid
-
+    uint gasLimit = 350000;
     mapping(uint => strAsset) public assetsIndex;
     uint public numAssets = 0;
     mapping (address => Data) data; // Address of fungible => price of fungible
@@ -171,6 +171,7 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
             var assetSlice = assets[i].toSlice();
             strAsset currentAssetStr = assetsIndex[i+1];
             Asset currentAsset = Asset(currentAssetStr.assetAddress);
+            Asset baseAsset = Asset(quoteAsset);
             uint length = assetSlice.count("~".toSlice());
             uint copyLength = length;
             uint sum = 0;
@@ -178,7 +179,7 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
             for(uint j = 0; j < length; j++) {
                 var part = assetSlice.split("~".toSlice());
                 if (!part.empty()) {
-                    sum += parseInt(part.toString(), currentAsset.getDecimals());
+                    sum += parseInt(part.toString(), baseAsset.getDecimals());
                 }
                 else {
                     copyLength -= 1;
@@ -190,7 +191,7 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
                 uint price = sum/length;
 
                 if (currentAssetStr.invertPair) {
-                    price = 10**currentAsset.getDecimals()*10**currentAsset.getDecimals()/price;
+                    price = (10**currentAsset.getDecimals()*10**baseAsset.getDecimals())/price;
                 }
                 data[currentAssetStr.assetAddress] = Data(now, price);
                 PriceUpdated(currentAssetStr.assetAddress, now, price);
@@ -216,7 +217,7 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
 
     function updatePriceOraclize()
         payable {
-        oraclize_query(frequency, 'nested', oraclizeQuery, 280000);
+        oraclize_query(frequency, 'nested', oraclizeQuery, gasLimit);
     }
 
     function setFrequency(uint newFrequency) only_owner {
@@ -236,6 +237,10 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
     function rmAsset(uint _index) only_owner {
         delete assetsIndex[_index];
         numAssets -= 1;
+    }
+    
+    function setGasLimit(uint _newGasLimit) only_owner {
+        gasLimit = _newGasLimit;
     }
 
 }
