@@ -35,8 +35,8 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
     address public constant ETHER_TOKEN = 0x7506c7BfED179254265d443856eF9bda19221cD7;
     address public constant MELON_TOKEN = 0x4dffea52b0b4b48c71385ae25de41ce6ad0dd5a7;
     address public constant BITCOIN_TOKEN = 0x9E4C56a633DD64a2662bdfA69dE4FDE33Ce01bdd;
-    address public constant EURO_TOKEN = 0xF61b8003637E5D5dbB9ca8d799AB54E5082CbdBc;
-    address public constant REP_TOKEN = 0xC151b622fDeD233111155Ec273BFAf2882f13703;
+    address public constant REP_TOKEN = 0xF61b8003637E5D5dbB9ca8d799AB54E5082CbdBc;
+    address public constant EURO_TOKEN = 0xC151b622fDeD233111155Ec273BFAf2882f13703;
 
     // Fields that are only changed in constructor
     /// Note: By definition the price of the quote asset against itself (quote asset) is always equals one
