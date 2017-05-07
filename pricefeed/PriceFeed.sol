@@ -46,7 +46,7 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
     uint frequency = 300; // Frequency of updates in seconds
     uint validity = 600; // Time in seconds data is considered valid
     uint gasLimit = 350000;
-    mapping(uint => strAsset) public assetsIndex;
+    strAsset[] public assetsIndex;
     uint public numAssets = 0;
     mapping (address => Data) data; // Address of fungible => price of fungible
 
@@ -230,15 +230,22 @@ contract PriceFeed is usingOraclize, PriceFeedProtocol, SafeMath, Owned {
     }
 
     function addAsset(address _newAsset, bool invertPrice) only_owner {
-        numAssets += 1;
-        assetsIndex[numAssets] = strAsset(_newAsset, invertPrice);
+        assetsIndex.push(strAsset(_newAsset, invertPrice));
     }
 
-    function rmAsset(uint _index) only_owner {
-        delete assetsIndex[_index];
-        numAssets -= 1;
+	
+	function rmAsset(address _assetRemoved) only_owner {
+         uint length = assetsIndex.length;
+         for (uint i = 0; i < length; i++) {
+             if (assetsIndex[i].assetAddress == _assetRemoved) {
+                 break;
+             }
+         }
+ 
+        assetsIndex[i] = assetsIndex[assetsIndex.length - 1];
+        assetsIndex.length--;
     }
-    
+ 
     function setGasLimit(uint _newGasLimit) only_owner {
         gasLimit = _newGasLimit;
     }
